@@ -37,6 +37,10 @@ class Brush {
         this.density_counter = (this.density_counter + this.density) % this.max_density;
         return this.density_counter < this.density;
     }
+
+    reset_density_counter() {
+        this.density_counter = 0;
+    }
 }
 
 class Icon {
@@ -190,8 +194,12 @@ canvas.addEventListener('click', function(event) {
 }, false);
 
 canvas.addEventListener('mousedown', function(event) {
+    const x = event.pageX;
+    const y = event.pageY;
     if (tool === Tools.BRUSH) {
         isDragging = true;
+        brush.density_count();
+        bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
     }
 });
 
@@ -211,6 +219,7 @@ canvas.addEventListener('mousemove', function(event) {
 canvas.addEventListener('mouseup', function() {
     if (tool === Tools.BRUSH) {
         isDragging = false;
+        brush.reset_density_counter();
     }
 });
 
