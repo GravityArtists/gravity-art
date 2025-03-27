@@ -132,14 +132,25 @@ for (let i = 0; i < numBodies; i++) {
     bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, vx, vy));
 }
 
-function animate() {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (let body of bodies) {
-        body.update(bodies);
-        body.draw();
+let lastTime = 0;
+const tickRate = 60; // 60 ticks per second
+const tickInterval = 1000 / tickRate;
+
+function animate(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const deltaTime = timestamp - lastTime;
+
+    if (deltaTime >= tickInterval) {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let body of bodies) {
+            body.update(bodies);
+            body.draw();
+        }
+        menu.draw();
+        lastTime = timestamp;
     }
-    menu.draw()
+
     requestAnimationFrame(animate);
 }
 
