@@ -2,13 +2,11 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
 const Tools = {
     CURSOR: "cursor",
     BRUSH: "brush"
 };
-
-
-
 
 
 const G = 0.1;
@@ -19,11 +17,25 @@ let tool = Tools.CURSOR;
 let isDragging = false;
 
 class Brush {
+    static BrushType = {
+        POINT: "point",
+        SCATTER: "scatter",
+    };
+    
+
     constructor() {
         this.size = 5;
         this.spread = 0;
         this.count = 1;
         this.density = 1;
+        this.style = Brush.BrushType.POINT;
+        this.density_counter = 0;
+        this.max_density = 100;
+    }
+
+    density_count() {
+        this.density_counter = (this.density_counter + this.density) % this.max_density;
+        return this.density_counter < this.density;
     }
 }
 
@@ -31,7 +43,7 @@ class Icon {
     constructor(size, src) {
         this.size = size;
         this.image = new Image(this.size, this.size);
-        this.image.src = src; // Ensure the image source is set
+        this.image.src = src;
     }
 }
 
@@ -103,6 +115,7 @@ class Body {
 const bodies = [];
 const menu = new Menu();
 const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
+const brush = new Brush;
 bodies.push(sun);
 
 for (let i = 0; i < numBodies; i++) {
@@ -177,9 +190,10 @@ canvas.addEventListener('mousemove', function(event) {
         const y = event.pageY;
 
         // Draw a circle at the current mouse position
-
-        bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
-        console.log("inserting new body");
+        if (brush.density_count()) {
+            bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
+            console.log(bodies.length);
+        }
     }
 });
 
