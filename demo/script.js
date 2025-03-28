@@ -8,12 +8,18 @@ const Tools = {
     BRUSH: "brush"
 };
 
+const Hover = {
+    NONE: -1,
+    CURSOR: 0,
+    BRUSH: 1
+}
 
 const G = 0.1;
 const numBodies = 300;
 const orbitRadius = canvas.width / 4;
 
 let tool = Tools.CURSOR;
+let hover = Hover.NONE;
 let isDragging = false;
 
 class Brush {
@@ -21,7 +27,6 @@ class Brush {
         POINT: "point",
         SCATTER: "scatter",
     };
-    
 
     constructor() {
         this.size = 5;
@@ -73,8 +78,43 @@ class Menu {
             ctx.drawImage(icon.image, this.x + x_padding, this.y + y_padding + y_offset, this.icon_size, this.icon_size);
             y_offset += this.icon_size;
         }
+
+        // emphasis on hovered icon
+        if (hover != -1) {
+            console.log("test");
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x + x_padding, this.y + y_padding + this.icon_size * hover, this.icon_size, this.icon_size);
+        }
     }
 }
+class BrushSubMenu {
+    constructor(parentMenu) {
+        this.parentMenu = parentMenu;
+        this.width = parentMenu.width * 0.8;
+        this.height = parentMenu.height * 0.3;
+        this.x = parentMenu.x - this.width - 10;
+        this.y = parentMenu.y + parentMenu.icon_size + 20;
+        this.options = ["Point", "Scatter"];
+    }
+
+    draw() {
+        if (hover == Hover.BRUSH) {
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+    
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            const optionHeight = this.height / this.options.length;
+            for (let i = 0; i < this.options.length; i++) {
+                const optionY = this.y + i * optionHeight + optionHeight / 2;
+                ctx.fillText(this.options[i], this.x + 10, optionY);
+            }
+        }
+    }
+}
+
+
 class Body {
     constructor(x, y, color, mass = Math.random() * 10 + 1, vx = 0, vy = 0, isSun = false) {
         this.x = x;
@@ -118,6 +158,7 @@ class Body {
 
 const bodies = [];
 const menu = new Menu();
+const submenu = new BrushSubMenu(menu);
 const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
 const brush = new Brush;
 bodies.push(sun);
@@ -152,17 +193,14 @@ function animate(timestamp) {
             body.draw();
         }
         menu.draw();
+        submenu.draw();
         lastTime = timestamp;
     }
 
     requestAnimationFrame(animate);
 }
 
-canvas.addEventListener('click', function(event) {
-    var x = event.pageX;
-    var y = event.pageY;
-    
-    // Menu click
+function menu_icon(x, y) {
     if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.height) {
         for (let i = 0; i < menu.icons.length; i++) {
             const iconX = menu.x + 10;
@@ -176,20 +214,26 @@ canvas.addEventListener('click', function(event) {
                 y >= iconY &&
                 y <= iconY + iconHeight
             ) {
-                if (i === 0) {
-                    tool = Tools.CURSOR;
-                    canvas.style.cursor = "default"; // Reset to default cursor
-                } else if (i === 1) {
-                    tool = Tools.BRUSH;
-                    canvas.style.cursor = "crosshair"; // Change cursor to crosshair
-                }
-                break;
+                return i;
             }
         }
     }
+    return -1;
+}
 
-    if (tool == Tools.BRUSH) {
-
+canvas.addEventListener('click', function(event) {
+    var x = event.pageX;
+    var y = event.pageY;
+    
+    // Menu click
+    let icon = menu_icon(x,y);
+    if (icon === 0) {
+        tool = Tools.CURSOR;
+        canvas.style.cursor = "default"; // Reset to default cursor
+    }
+    else if (icon === 1) {
+        tool = Tools.BRUSH;
+        canvas.style.cursor = "crosshair"; // Change cursor to crosshair
     }
 }, false);
 
@@ -204,11 +248,26 @@ canvas.addEventListener('mousedown', function(event) {
 });
 
 canvas.addEventListener('mousemove', function(event) {
+    var x = event.pageX;
+    var y = event.pageY;
+    
+    // Check main menu 
+    const icon = menu_icon(x,y);
+    if (icon == 0) {
+        hover = Hover.CURSOR;
+    }
+    else if (icon == 1) {
+        hover = Hover.BRUSH;
+    }
+    else {
+        hover = Hover.NONE;
+    }
+
+    // Paint
     if (isDragging && tool === Tools.BRUSH) {
         const x = event.pageX;
         const y = event.pageY;
 
-        // Draw a circle at the current mouse position
         if (brush.density_count()) {
             bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
             console.log(bodies.length);
