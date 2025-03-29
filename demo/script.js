@@ -3,6 +3,9 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+const colorPicker = document.getElementById("colorPicker");
+colorPicker.style.display = "none";
+
 const Tools = {
     CURSOR: "cursor",
     BRUSH: "brush"
@@ -12,7 +15,7 @@ const Hover = {
     NONE: -1,
     CURSOR: 0,
     BRUSH: 1
-}
+};
 
 const G = 0.1;
 const numBodies = 300;
@@ -38,6 +41,7 @@ class Brush {
         this.style = Brush.BrushType.POINT;
         this.density_counter = 0;
         this.max_density = 100;
+        this.color = "#0000ff";
     }
 
     density_count() {
@@ -74,9 +78,9 @@ class Menu {
         const y_padding = 10;
         let y_offset = 0;
 
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.5)'
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        for (const icon of this.icons){
+        for (const icon of this.icons) {
             ctx.drawImage(icon.image, this.x + x_padding, this.y + y_padding + y_offset, this.icon_size, this.icon_size);
             y_offset += this.icon_size;
         }
@@ -215,12 +219,7 @@ function menu_icon(x, y) {
             const iconWidth = menu.icon_size;
             const iconHeight = menu.icon_size;
 
-            if (
-                x >= iconX &&
-                x <= iconX + iconWidth &&
-                y >= iconY &&
-                y <= iconY + iconHeight
-            ) {
+            if (x >= iconX && x <= iconX + iconWidth && y >= iconY && y <= iconY + iconHeight) {
                 return i;
             }
         }
@@ -242,15 +241,16 @@ function submenu_click(x, y) {
 }
 
 function spawnBrushParticles(x, y) {
+    const color = brush.color;
     if (brush.style === Brush.BrushType.POINT) {
-        bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0));
+        bodies.push(new Body(x, y, color, Math.random() * 30 + 1, 0, 0));
     } else if (brush.style === Brush.BrushType.SCATTER) {
         for (let i = 0; i < brush.count; i++) {
             const angle = Math.random() * 2 * Math.PI;
             const radius = Math.random() * brush.spread;
             const dx = Math.cos(angle) * radius;
             const dy = Math.sin(angle) * radius;
-            bodies.push(new Body(x + dx, y + dy, 'blue', Math.random() * 30 + 1, 0, 0));
+            bodies.push(new Body(x + dx, y + dy, color, Math.random() * 30 + 1, 0, 0));
         }
     }
 }
@@ -263,9 +263,11 @@ canvas.addEventListener('click', function(event) {
     if (icon === 0) {
         tool = Tools.CURSOR;
         canvas.style.cursor = "default";
+        colorPicker.style.display = "none";
     } else if (icon === 1) {
         tool = Tools.BRUSH;
         canvas.style.cursor = "crosshair";
+        colorPicker.style.display = "block";
     } else {
         submenu_click(x, y);
     }
@@ -288,9 +290,9 @@ canvas.addEventListener('mousemove', function(event) {
     const y = event.pageY;
 
     const icon = menu_icon(x, y);
-    if (icon == 0) {
+    if (icon === 0) {
         hover = Hover.CURSOR;
-    } else if (icon == 1) {
+    } else if (icon === 1) {
         hover = Hover.BRUSH;
     } else {
         hover = Hover.NONE;
@@ -312,6 +314,10 @@ canvas.addEventListener('mouseup', function() {
         lastBrushX = null;
         lastBrushY = null;
     }
+});
+
+colorPicker.addEventListener("input", (e) => {
+    brush.color = e.target.value;
 });
 
 animate();
