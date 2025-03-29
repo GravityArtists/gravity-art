@@ -6,6 +6,8 @@ canvas.height = window.innerHeight;
 const colorPicker = document.getElementById("colorPicker");
 colorPicker.style.display = "none";
 
+const playPauseButton = document.getElementById("playPauseButton");
+
 const Tools = {
     CURSOR: "cursor",
     BRUSH: "brush"
@@ -26,6 +28,7 @@ let hover = Hover.NONE;
 let isDragging = false;
 let lastBrushX = null;
 let lastBrushY = null;
+let paused = false;
 
 class Brush {
     static BrushType = {
@@ -139,7 +142,7 @@ class Body {
     }
 
     update(bodies) {
-        if (this.isSun) return;
+        if (this.isSun || paused) return;
 
         let ax = 0, ay = 0;
         for (let body of bodies) {
@@ -318,6 +321,11 @@ canvas.addEventListener('mouseup', function() {
 
 colorPicker.addEventListener("input", (e) => {
     brush.color = e.target.value;
+});
+
+playPauseButton.addEventListener("click", () => {
+    paused = !paused;
+    playPauseButton.textContent = paused ? "Play" : "Pause";
 });
 
 animate();
