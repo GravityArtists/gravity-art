@@ -21,6 +21,8 @@ const orbitRadius = canvas.width / 4;
 let tool = Tools.CURSOR;
 let hover = Hover.NONE;
 let isDragging = false;
+let lastBrushX = null;
+let lastBrushY = null;
 
 class Brush {
     static BrushType = {
@@ -30,8 +32,8 @@ class Brush {
 
     constructor() {
         this.size = 5;
-        this.spread = 0;
-        this.count = 1;
+        this.spread = 30;
+        this.count = 10;
         this.density = 1;
         this.style = Brush.BrushType.POINT;
         this.density_counter = 0;
@@ -79,15 +81,14 @@ class Menu {
             y_offset += this.icon_size;
         }
 
-        // emphasis on hovered icon
         if (hover != -1) {
-            console.log("test");
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.strokeRect(this.x + x_padding, this.y + y_padding + this.icon_size * hover, this.icon_size, this.icon_size);
         }
     }
 }
+
 class BrushSubMenu {
     constructor(parentMenu) {
         this.parentMenu = parentMenu;
@@ -99,21 +100,27 @@ class BrushSubMenu {
     }
 
     draw() {
-        if (hover == Hover.BRUSH) {
+        if (tool === Tools.BRUSH) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-    
-            ctx.fillStyle = 'white';
+
             ctx.font = '16px Arial';
             const optionHeight = this.height / this.options.length;
             for (let i = 0; i < this.options.length; i++) {
-                const optionY = this.y + i * optionHeight + optionHeight / 2;
-                ctx.fillText(this.options[i], this.x + 10, optionY);
+                const optionY = this.y + i * optionHeight;
+
+                if (brush.style === this.options[i].toLowerCase()) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(this.x, optionY, this.width, optionHeight);
+                }
+
+                ctx.fillStyle = 'white';
+                ctx.fillText(this.options[i], this.x + 10, optionY + optionHeight / 2);
             }
         }
     }
 }
-
 
 class Body {
     constructor(x, y, color, mass = Math.random() * 10 + 1, vx = 0, vy = 0, isSun = false) {
@@ -129,7 +136,7 @@ class Body {
 
     update(bodies) {
         if (this.isSun) return;
-        
+
         let ax = 0, ay = 0;
         for (let body of bodies) {
             if (body !== this) {
@@ -160,7 +167,7 @@ const bodies = [];
 const menu = new Menu();
 const submenu = new BrushSubMenu(menu);
 const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
-const brush = new Brush;
+const brush = new Brush();
 bodies.push(sun);
 
 for (let i = 0; i < numBodies; i++) {
@@ -178,7 +185,7 @@ for (let i = 0; i < numBodies; i++) {
 }
 
 let lastTime = 0;
-const tickRate = 60; // 60 ticks per second
+const tickRate = 60;
 const tickInterval = 1000 / tickRate;
 
 function animate(timestamp) {
@@ -201,13 +208,13 @@ function animate(timestamp) {
 }
 
 function menu_icon(x, y) {
-    if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.height) {
+    if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.y + menu.height) {
         for (let i = 0; i < menu.icons.length; i++) {
             const iconX = menu.x + 10;
             const iconY = menu.y + 10 + i * menu.icon_size;
             const iconWidth = menu.icon_size;
             const iconHeight = menu.icon_size;
-    
+
             if (
                 x >= iconX &&
                 x <= iconX + iconWidth &&
@@ -221,19 +228,46 @@ function menu_icon(x, y) {
     return -1;
 }
 
+function submenu_click(x, y) {
+    if (tool !== Tools.BRUSH) return;
+    const optionHeight = submenu.height / submenu.options.length;
+    for (let i = 0; i < submenu.options.length; i++) {
+        const optionY = submenu.y + i * optionHeight;
+        if (x >= submenu.x && x <= submenu.x + submenu.width &&
+            y >= optionY && y <= optionY + optionHeight) {
+            brush.style = submenu.options[i].toLowerCase();
+            return;
+        }
+    }
+}
+
+function spawnBrushParticles(x, y) {
+    if (brush.style === Brush.BrushType.POINT) {
+        bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0));
+    } else if (brush.style === Brush.BrushType.SCATTER) {
+        for (let i = 0; i < brush.count; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const radius = Math.random() * brush.spread;
+            const dx = Math.cos(angle) * radius;
+            const dy = Math.sin(angle) * radius;
+            bodies.push(new Body(x + dx, y + dy, 'blue', Math.random() * 30 + 1, 0, 0));
+        }
+    }
+}
+
 canvas.addEventListener('click', function(event) {
-    var x = event.pageX;
-    var y = event.pageY;
-    
-    // Menu click
-    let icon = menu_icon(x,y);
+    const x = event.pageX;
+    const y = event.pageY;
+
+    let icon = menu_icon(x, y);
     if (icon === 0) {
         tool = Tools.CURSOR;
-        canvas.style.cursor = "default"; // Reset to default cursor
-    }
-    else if (icon === 1) {
+        canvas.style.cursor = "default";
+    } else if (icon === 1) {
         tool = Tools.BRUSH;
-        canvas.style.cursor = "crosshair"; // Change cursor to crosshair
+        canvas.style.cursor = "crosshair";
+    } else {
+        submenu_click(x, y);
     }
 }, false);
 
@@ -242,36 +276,32 @@ canvas.addEventListener('mousedown', function(event) {
     const y = event.pageY;
     if (tool === Tools.BRUSH) {
         isDragging = true;
+        lastBrushX = x;
+        lastBrushY = y;
         brush.density_count();
-        bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
+        spawnBrushParticles(x, y);
     }
 });
 
 canvas.addEventListener('mousemove', function(event) {
-    var x = event.pageX;
-    var y = event.pageY;
-    
-    // Check main menu 
-    const icon = menu_icon(x,y);
+    const x = event.pageX;
+    const y = event.pageY;
+
+    const icon = menu_icon(x, y);
     if (icon == 0) {
         hover = Hover.CURSOR;
-    }
-    else if (icon == 1) {
+    } else if (icon == 1) {
         hover = Hover.BRUSH;
-    }
-    else {
+    } else {
         hover = Hover.NONE;
     }
 
-    // Paint
     if (isDragging && tool === Tools.BRUSH) {
-        const x = event.pageX;
-        const y = event.pageY;
-
         if (brush.density_count()) {
-            bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, 0, 0))
-            console.log(bodies.length);
+            spawnBrushParticles(x, y);
         }
+        lastBrushX = x;
+        lastBrushY = y;
     }
 });
 
@@ -279,10 +309,9 @@ canvas.addEventListener('mouseup', function() {
     if (tool === Tools.BRUSH) {
         isDragging = false;
         brush.reset_density_counter();
+        lastBrushX = null;
+        lastBrushY = null;
     }
 });
 
 animate();
-
-// newtons law force between two bodies
-// F = (G * m1 * m2) / (r^2)
