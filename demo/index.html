@@ -1,20 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <button id="playPauseButton" style="position: absolute; top: 700px; left: 720px; z-index: 1000;">Pause</button>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>N-Body Simulation</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test N-Body Simulation</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: black; }
-        canvas { display: block; }
-    </style>
+    canvas {
+      display: block;
+    }
+
+    #playPauseButton {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    #colorPicker,
+    #countInput {
+      position: absolute;
+      display: none;
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
-    <input type="color" id="colorPicker" value="#0000ff" style="position: absolute; top: 400px; left: 1220px; z-index: 1000;">
-
-    <canvas id="canvas"></canvas>
-    <script src="script.js"></script>
+  <canvas id="canvas"></canvas>
+  <input id="colorPicker" type="color" />
+  <input id="countInput" type="number" min="1" max="100" value="10" />
+  <button id="playPauseButton">Pause</button>
+  <script src="script.js"></script>
 </body>
 </html>
