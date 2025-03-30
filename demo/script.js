@@ -37,10 +37,10 @@ class Brush {
     };
 
     constructor() {
-        this.size = 5;
-        this.spread = 30;
-        this.count = 10;
-        this.density = 1;
+        this.size = {value: 5};
+        this.spread = {value: 30};
+        this.count = {value: 10};
+        this.density = {value: 1};
         this.style = Brush.BrushType.POINT;
         this.density_counter = 0;
         this.max_density = 100;
@@ -48,8 +48,8 @@ class Brush {
     }
 
     density_count() {
-        this.density_counter = (this.density_counter + this.density) % this.max_density;
-        return this.density_counter < this.density;
+        this.density_counter = (this.density_counter + this.density.value) % this.max_density;
+        return this.density_counter < this.density.value;
     }
 
     reset_density_counter() {
@@ -97,13 +97,26 @@ class Menu {
 }
 
 class BrushSubMenu {
-    constructor(parentMenu) {
+    constructor(parentMenu, brush) {
         this.parentMenu = parentMenu;
         this.width = parentMenu.width * 0.8;
-        this.height = parentMenu.height * 0.3;
+        this.height = parentMenu.height * 0.8; // Increased height to accommodate slider
         this.x = parentMenu.x - this.width - 10;
-        this.y = parentMenu.y + parentMenu.icon_size + 20;
+        this.y = parentMenu.y + 20;
         this.options = ["Point", "Scatter"];
+        this.density_slider = new Slider("density", this.x + 10, this.y + this.height - 200, 100, brush.density);
+        this.size_slider = new Slider("size", this.x + 10, this.y + this.height - 150, 100, brush.size);
+        this.spread_slider = new Slider("spread", this.x + 10, this.y + this.height - 100, 100, brush.spread);
+        this.count_slider = new Slider("count", this.x + 10, this.y + this.height - 50, 100, brush.count);
+        this.size = {value: 5};
+        this.spread = {value: 30};
+        this.count = {value: 10};
+        this.density = {value: 1};
+        this.sliders = [this.density_slider,
+                        this.size_slider,
+                        this.spread_slider,
+                        this.count_slider
+        ];
     }
 
     draw() {
@@ -112,7 +125,7 @@ class BrushSubMenu {
             ctx.fillRect(this.x, this.y, this.width, this.height);
 
             ctx.font = '16px Arial';
-            const optionHeight = this.height / this.options.length;
+            const optionHeight = 100 // Adjusted for slider space
             for (let i = 0; i < this.options.length; i++) {
                 const optionY = this.y + i * optionHeight;
 
@@ -125,7 +138,80 @@ class BrushSubMenu {
                 ctx.fillStyle = 'white';
                 ctx.fillText(this.options[i], this.x + 10, optionY + optionHeight / 2);
             }
+            for (const slider of this.sliders) {
+                slider.draw();
+            }
         }
+    }
+
+    handleMouseDown(x, y) {
+        for (const slider of this.sliders) {
+            slider.handleMouseDown(x, y);
+        }
+    }
+
+    handleMouseMove(x, y) {
+        for (const slider of this.sliders) {
+            slider.handleMouseMove(x, y);
+        }
+    }
+
+    handleMouseUp() {
+        for (const slider of this.sliders) {
+            slider.handleMouseUp();
+        }
+    }
+}
+
+class Slider {
+    constructor(label,x,y,width,value_ref) {
+        this.label = label;
+        this.x = x,
+        this.y = y;
+        this.width = width,
+        this.height = 10,
+        this.handle_radius = 8,
+        this.min_value = 1;
+        this.max_value = 100;
+        this.value_ref = value_ref;
+        this.dragging = false
+    }
+
+    draw() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        const handleX = this.x + ((this.value_ref.value - this.min_value) / (this.max_value - this.min_value)) * this.width;
+        ctx.beginPath();
+        ctx.arc(handleX, this.y + this.height / 2, this.handle_radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillText(`${this.label}: ${this.value_ref.value}`, this.x, this.y - 10);
+    }
+
+    handleMouseDown(x, y) {
+        console.log(this.value_ref.value);
+        const handleX = this.x + ((this.value_ref.value - this.min_value) / (this.max_value - this.min_value)) * this.width;
+        const handleY = this.y + this.height / 2;
+
+        const dist = Math.sqrt((x - handleX) ** 2 + (y - handleY) ** 2);
+        console.log(handleX);
+        console.log(handleY);
+        console.log(dist);
+        if (dist <= this.handle_radius) {
+            this.dragging = true;
+        }
+    }
+
+    handleMouseMove(x, y) {
+        if (this.dragging) {
+            const clampedX = Math.max(this.x, Math.min(x, this.x + this.width));
+            this.value_ref.value = Math.round(this.min_value + ((clampedX - this.x) / this.width) * (this.max_value - this.min_value));
+        }
+    }
+
+    handleMouseUp() {
+        this.dragging = false;
     }
 }
 
@@ -172,9 +258,9 @@ class Body {
 
 const bodies = [];
 const menu = new Menu();
-const submenu = new BrushSubMenu(menu);
-const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
 const brush = new Brush();
+const submenu = new BrushSubMenu(menu, brush);
+const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
 bodies.push(sun);
 
 for (let i = 0; i < numBodies; i++) {
@@ -232,7 +318,7 @@ function menu_icon(x, y) {
 
 function submenu_click(x, y) {
     if (tool !== Tools.BRUSH) return;
-    const optionHeight = submenu.height / submenu.options.length;
+    const optionHeight = 100
     for (let i = 0; i < submenu.options.length; i++) {
         const optionY = submenu.y + i * optionHeight;
         if (x >= submenu.x && x <= submenu.x + submenu.width &&
@@ -248,9 +334,9 @@ function spawnBrushParticles(x, y) {
     if (brush.style === Brush.BrushType.POINT) {
         bodies.push(new Body(x, y, color, Math.random() * 30 + 1, 0, 0));
     } else if (brush.style === Brush.BrushType.SCATTER) {
-        for (let i = 0; i < brush.count; i++) {
+        for (let i = 0; i < brush.count.value; i++) {
             const angle = Math.random() * 2 * Math.PI;
-            const radius = Math.random() * brush.spread;
+            const radius = Math.random() * brush.spread.value;
             const dx = Math.cos(angle) * radius;
             const dy = Math.sin(angle) * radius;
             bodies.push(new Body(x + dx, y + dy, color, Math.random() * 30 + 1, 0, 0));
@@ -286,6 +372,7 @@ canvas.addEventListener('mousedown', function(event) {
         brush.density_count();
         spawnBrushParticles(x, y);
     }
+    submenu.handleMouseDown(x,y);
 });
 
 canvas.addEventListener('mousemove', function(event) {
@@ -308,6 +395,7 @@ canvas.addEventListener('mousemove', function(event) {
         lastBrushX = x;
         lastBrushY = y;
     }
+    submenu.handleMouseMove(x,y);
 });
 
 canvas.addEventListener('mouseup', function() {
@@ -317,6 +405,7 @@ canvas.addEventListener('mouseup', function() {
         lastBrushX = null;
         lastBrushY = null;
     }
+    submenu.handleMouseUp();
 });
 
 colorPicker.addEventListener("input", (e) => {
