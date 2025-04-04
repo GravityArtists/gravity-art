@@ -13,6 +13,9 @@
 
     canvas {
       display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
 
     #playPauseButton {
@@ -21,6 +24,10 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
+    }
+
+    #uiCanvas {
+      z-index: 5;
     }
 
     #colorPicker,
@@ -33,6 +40,8 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
+  <canvas id="glCanvas"></canvas>
+  <canvas id="uiCanvas"></canvas>
   <input id="colorPicker" type="color" />
   <button id="playPauseButton">Pause</button>
   <script src="script.js"></script>
