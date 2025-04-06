@@ -230,7 +230,7 @@ class Body {
     this.mass = mass;
     this.vx = vx;
     this.vy = vy;
-    this.radius = Math.cbrt(this.mass) * (Math.random() * 2 + 1);
+    this.radius = Math.cbrt(this.mass);
     this.isSun = isSun;
   }
 
@@ -342,6 +342,7 @@ function submenu_click(x, y) {
 function spawnBrushParticles(x, y) {
     const color = brush.color;
     if (brush.style === Brush.BrushType.POINT) {
+        console.log(brush.size.value);
         bodies.push(new Body(x, y, color, brush.size.value * 30, 0, 0));
     } else if (brush.style === Brush.BrushType.SCATTER) {
         for (let i = 0; i < brush.count.value; i++) {
