@@ -17,17 +17,22 @@ const Hover = {
   BRUSH: 1,
 };
 
+const Algorithms = {
+  N_SQUARED: "N_SQUARED",
+  KD: "KD",
+}
+
 const G = 0.1;
 const numBodies = 300;
 const orbitRadius = canvas.width / 4;
 
 let tool = Tools.CURSOR;
 let hover = Hover.NONE;
+let algorithm = Algorithms.N_SQUARED;
 let isDragging = false;
 let lastBrushX = null;
 let lastBrushY = null;
 let paused = false;
-
 class Brush {
   static BrushType = {
     POINT: "point",
@@ -174,6 +179,65 @@ class BrushSubMenu {
     }
 }
 
+class Diagnostics {
+  constructor(x,y,width) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.avg_compute_time = {
+      value : null,
+    }
+    this.particle_count = {
+      value: null,
+    }
+    this.performance_history_size = 10;
+    this.performance_history = Array(this.performance_history_size).fill(null);
+    this.frame_counter = 0;
+
+
+    this.diagnostics = [
+      new Diagnostic(this.x, this.y, "Time / Frame (ms)", this.avg_compute_time, 3),
+      new Diagnostic(this.x, this.y+15, "# Particles", this.particle_count),
+    ]
+  }
+
+  update_time(compute_time) {
+    this.performance_history[this.frame_counter%this.performance_history_size] = compute_time;
+    this.frame_counter++;
+    if (this.frame_counter % this.performance_history_size == 0) this.recompute_avg_time(compute_time);
+  }
+
+  update_particle_count(particle_count) {
+    console.log(particle_count);
+    this.particle_count.value = particle_count;
+  }
+
+  recompute_avg_time() {
+    this.avg_compute_time.value = this.performance_history.reduce((a,b) => a + b, 0) / this.performance_history_size;
+  }
+
+
+  draw() {
+    for (const diagnostic of this.diagnostics) {
+      diagnostic.draw();
+    }
+  }
+}
+
+class Diagnostic {
+  constructor(x,y,label, value_ref, num_decimals = 0) {
+    this.x = x;
+    this.y = y;
+    this.label = label;
+    this.value_ref = value_ref;
+    this.num_decimals = num_decimals;
+  }
+  draw() {
+    ctx.fillStyle = 'white';
+    ctx.fillText(`${this.label}: ${this.value_ref.value != null ? this.value_ref.value.toFixed(this.num_decimals) : "null"}`, this.x, this.y);
+  }
+}
+
 class Slider {
     constructor(label,x,y,width,value_ref) {
         this.label = label;
@@ -234,7 +298,7 @@ class Body {
     this.isSun = isSun;
   }
 
-  update(bodies) {
+  compute_n_squared(bodies) {
     if (this.isSun || paused) return;
 
     let ax = 0, ay = 0;
@@ -267,6 +331,7 @@ const bodies = [];
 const menu = new Menu();
 const brush = new Brush();
 const submenu = new BrushSubMenu(menu, brush);
+const diagnostics = new Diagnostics(100, 50, 200);
 const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
 bodies.push(sun);
 
@@ -284,25 +349,53 @@ for (let i = 0; i < numBodies; i++) {
   bodies.push(new Body(x, y, 'blue', Math.random() * 30 + 1, vx, vy));
 }
 
-let lastTime = 0;
+let lastTime = null;
 const tickRate = 60;
 const tickInterval = 1000 / tickRate;
 
+function compute_frame() {
+  let start = performance.now();
+  switch(algorithm) {
+    case Algorithms.N_SQUARED:
+      n_squared();
+      break;
+    case Algorithms.KD:
+      // Implement KD algorithm logic here
+      break;
+    default:
+      console.error("Unknown algorithm");
+      break;
+    }
+  const compute_time = performance.now() - start;
+  diagnostics.update_time(compute_time);
+}
+
+function n_squared() {
+  for (let body of bodies) {
+    body.compute_n_squared(bodies);
+  }
+}
+
 function animate(timestamp) {
-  if (!lastTime) lastTime = timestamp;
+  if (!lastTime) {
+    lastTime = timestamp;
+  }
   const deltaTime = timestamp - lastTime;
 
   if (deltaTime >= tickInterval) {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    compute_frame();
 
-    for (let body of bodies) {
-      body.update(bodies);
+    for (body of bodies) {
       body.draw();
     }
-
+    diagnostics.update_particle_count(bodies.length);
     menu.draw();
     submenu.draw();
+    diagnostics.draw();
+    
 
     lastTime = timestamp;
   }
@@ -420,4 +513,4 @@ playPauseButton.addEventListener("click", () => {
   playPauseButton.textContent = paused ? "Play" : "Pause";
 });
 
-animate();
+animate(performance.now());
