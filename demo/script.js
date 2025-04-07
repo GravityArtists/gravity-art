@@ -218,6 +218,8 @@ class Diagnostics {
 
 
   draw() {
+    ctx.clearRect(this.x, this.y, this.width, this.diagnostics.length*20);
+    
     for (const diagnostic of this.diagnostics) {
       diagnostic.draw();
     }
@@ -233,6 +235,7 @@ class Diagnostic {
     this.num_decimals = num_decimals;
   }
   draw() {
+    ctx.font = '12px Arial';
     ctx.fillStyle = 'white';
     ctx.fillText(`${this.label}: ${this.value_ref.value != null ? this.value_ref.value.toFixed(this.num_decimals) : "null"}`, this.x, this.y);
   }
@@ -383,8 +386,10 @@ function animate(timestamp) {
   const deltaTime = timestamp - lastTime;
 
   if (deltaTime >= tickInterval) {
-    ctx.fillStyle = "black";
+    //ctx.fillStyle = "black";
+    ctx.fillStyle = "rgba(0,0,0,.1)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     
     compute_frame();
 
@@ -513,4 +518,6 @@ playPauseButton.addEventListener("click", () => {
   playPauseButton.textContent = paused ? "Play" : "Pause";
 });
 
+ctx.fillStyle = "black";
+ctx.fillRect(0,0,canvas.width, canvas.height);
 animate(performance.now());
