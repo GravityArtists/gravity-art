@@ -3,6 +3,11 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+window.addEventListener('resize', () => {
+  // work in-progress
+  window.location.reload();
+});
+
 const colorPicker = document.getElementById("colorPicker");
 const playPauseButton = document.getElementById("playPauseButton");
 
