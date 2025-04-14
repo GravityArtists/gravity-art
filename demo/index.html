@@ -11,8 +11,19 @@
       background: black;
     }
 
-    canvas {
+    #canvas {
       display: block;
+      z-index: 2;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #glCanvas {
+      z-index: 1;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
 
     #playPauseButton {
@@ -32,6 +43,7 @@
   </style>
 </head>
 <body>
+  <canvas id="glCanvas"></canvas>"
   <canvas id="canvas"></canvas>
   <input id="colorPicker" type="color" />
   <button id="playPauseButton">Pause</button>
