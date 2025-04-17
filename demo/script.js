@@ -7,7 +7,7 @@ glCanvas.height = window.innerHeight;
 uiCanvas.width = window.innerWidth;
 uiCanvas.height = window.innerHeight;
 
-const gl = glCanvas.getContext("webgl");
+const gl = glCanvas.getContext("webgl", {preserveDrawingBuffer: true});
 if (!gl) {
     alert("WebGL not supported on this browser.");
 }
@@ -76,6 +76,9 @@ function createProgram(gl, vertexShader, fragmentShader) {
     }
     return program;
 }
+
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
 const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
@@ -487,6 +490,51 @@ function n_squared() {
   }
 }
 
+function fadeTrailsProgram() {
+  // Only create this once
+  if (!window.fadeProgram) {
+    const vertexShaderSource = `
+      attribute vec2 position;
+      void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentShaderSource = `
+      precision mediump float;
+      uniform vec4 color;
+      void main() {
+        gl_FragColor = color;
+      }
+    `;
+
+    const vShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const program = createProgram(gl, vShader, fShader);
+    
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    window.fadeProgram = {
+      program: program,
+      buffer: buffer,
+      posLoc: gl.getAttribLocation(program, "position"),
+      colorLoc: gl.getUniformLocation(program, "color")
+    };
+  }
+
+  gl.useProgram(window.fadeProgram.program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, window.fadeProgram.buffer);
+  gl.enableVertexAttribArray(window.fadeProgram.posLoc);
+  gl.vertexAttribPointer(window.fadeProgram.posLoc, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform4f(window.fadeProgram.colorLoc, 0, 0, 0, 0.2);
+  
+  return window.fadeProgram.program;
+}
+
 function animate(timestamp) {
     if (!lastTime) {
       lastTime = timestamp;
@@ -496,8 +544,11 @@ function animate(timestamp) {
     if (deltaTime >= tickInterval) {
       compute_frame();
       
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.disable(gl.DEPTH_TEST);
+      const fadeProgram = fadeTrailsProgram();
+      gl.useProgram(fadeProgram);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.useProgram(program);
       
       const bodyData = updateBodyBuffers();
       gl.bindBuffer(gl.ARRAY_BUFFER, bodyBuffer);
@@ -648,7 +699,7 @@ playPauseButton.addEventListener("click", () => {
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
 
-gl.clearColor(0, 0, 0, 1);
-gl.clear(gl.COLOR_BUFFER_BIT);
+fadeTrailsProgram();
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 animate(performance.now());
