@@ -1,7 +1,91 @@
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const glCanvas = document.getElementById("glCanvas");
+const uiCanvas = document.getElementById("canvas");
+// const canvas = document.getElementById("canvas");
+
+glCanvas.width = window.innerWidth;
+glCanvas.height = window.innerHeight;
+uiCanvas.width = window.innerWidth;
+uiCanvas.height = window.innerHeight;
+
+const gl = glCanvas.getContext("webgl", {preserveDrawingBuffer: true});
+if (!gl) {
+    alert("WebGL not supported on this browser.");
+}
+const ctx = uiCanvas.getContext("2d");
+
+gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+
+const vertexShaderSource = `
+attribute vec2 a_position;
+attribute float a_pointSize;
+attribute vec3 a_color;
+uniform vec2 u_resolution;
+varying vec3 v_color;
+void main() {
+    vec2 zeroToOne = a_position / u_resolution;
+    vec2 zeroToTwo = zeroToOne * 2.0;
+    vec2 clipSpace = zeroToTwo - 1.0;
+    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+    gl_PointSize = a_pointSize;
+    v_color = a_color;
+}`;
+
+const fragmentShaderSource = `
+precision mediump float;
+varying vec3 v_color;
+
+void main() {
+    float dist = distance(gl_PointCoord, vec2(0.5, 0.5));
+    
+    if (dist > 0.5) {
+        discard;
+    }
+    
+    float intensity = 1.2 - pow(dist * 2.0, 1.5);
+    
+    vec3 innerColor = mix(vec3(1.0, 1.0, 1.0), v_color, smoothstep(0.0, 0.2, dist));
+    
+    vec3 finalColor = innerColor * intensity;
+    
+    float alpha = 1.0 - pow(dist * 2.0, 2.0);
+    
+    gl_FragColor = vec4(finalColor, alpha);
+}`;
+
+function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+    }
+    return shader;
+}
+
+function createProgram(gl, vertexShader, fragmentShader) {
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error("Program linking error:", gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        return null;
+    }
+    return program;
+}
+
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+const program = createProgram(gl, vertexShader, fragmentShader);
+gl.useProgram(program);
+
+const bodyBuffer = gl.createBuffer();
 
 window.addEventListener('resize', () => {
   // work in-progress
@@ -29,7 +113,7 @@ const Algorithms = {
 
 const G = 0.1;
 const numBodies = 300;
-const orbitRadius = canvas.width / 4;
+const orbitRadius = glCanvas.width / 4;
 
 let tool = Tools.CURSOR;
 let hover = Hover.NONE;
@@ -75,10 +159,10 @@ class Icon {
 
 class Menu {
   constructor() {
-    this.width = canvas.width * 0.1;
-    this.height = canvas.height * 0.8;
-    this.x = canvas.width - this.width - 20;
-    this.y = (canvas.height - this.height) / 2;
+    this.width = uiCanvas.width * 0.1;
+    this.height = uiCanvas.height * 0.8;
+    this.x = uiCanvas.width - this.width - 20;
+    this.y = (uiCanvas.height - this.height) / 2;
     this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
     this.icons = [this.mouse_icon, this.paint_brush_icon];
@@ -327,12 +411,34 @@ class Body {
     this.y += this.vy;
   }
 
+  /*
   draw() {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fillStyle = this.color;
     ctx.fill();
   }
+  */
+}
+
+function updateBodyBuffers() {
+    const data = [];
+    for (let body of bodies) {
+        let r = 0, g = 0, b = 0;
+        if (body.color === 'blue') {
+            r = 0; g = 0; b = 1;
+        } else if (body.color === 'yellow') {
+            r = 1; g = 1; b = 0;
+        } else if (body.color.startsWith('#')) {
+            const hex = body.color.substring(1);
+            r = parseInt(hex.substring(0, 2), 16) / 255;
+            g = parseInt(hex.substring(2, 4), 16) / 255;
+            b = parseInt(hex.substring(4, 6), 16) / 255;
+        }
+        const sizeMultiplier = body.isSun ? 2.5 : 3.5;
+        data.push(body.x, body.y, body.radius * sizeMultiplier, r, g, b);
+    }
+    return new Float32Array(data);
 }
 
 const bodies = [];
@@ -340,7 +446,7 @@ const menu = new Menu();
 const brush = new Brush();
 const submenu = new BrushSubMenu(menu, brush);
 const diagnostics = new Diagnostics(100, 50, 200);
-const sun = new Body(canvas.width / 2, canvas.height / 2, 'yellow', 1000, 0, 0, true);
+const sun = new Body(glCanvas.width / 2, glCanvas.height / 2, 'yellow', 1000, 0, 0, true);
 bodies.push(sun);
 
 for (let i = 0; i < numBodies; i++) {
@@ -472,34 +578,101 @@ function n_squared() {
   }
 }
 
-function animate(timestamp) {
-  if (!lastTime) {
-    lastTime = timestamp;
+function fadeTrailsProgram() {
+  // Only create this once
+  if (!window.fadeProgram) {
+    const vertexShaderSource = `
+      attribute vec2 position;
+      void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentShaderSource = `
+      precision mediump float;
+      uniform vec4 color;
+      void main() {
+        gl_FragColor = color;
+      }
+    `;
+
+    const vShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const program = createProgram(gl, vShader, fShader);
+    
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    window.fadeProgram = {
+      program: program,
+      buffer: buffer,
+      posLoc: gl.getAttribLocation(program, "position"),
+      colorLoc: gl.getUniformLocation(program, "color")
+    };
   }
-  const deltaTime = timestamp - lastTime;
 
-  if (deltaTime >= tickInterval) {
-    //ctx.fillStyle = "black";
-    ctx.fillStyle = "rgba(0,0,0,.1)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    
-    compute_frame();
-
-    for (body of bodies) {
-      body.draw();
-    }
-    diagnostics.update_particle_count(bodies.length);
-    menu.draw();
-    submenu.draw();
-    diagnostics.draw();
-    
-
-    lastTime = timestamp;
-  }
-
-  requestAnimationFrame(animate);
+  gl.useProgram(window.fadeProgram.program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, window.fadeProgram.buffer);
+  gl.enableVertexAttribArray(window.fadeProgram.posLoc);
+  gl.vertexAttribPointer(window.fadeProgram.posLoc, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform4f(window.fadeProgram.colorLoc, 0, 0, 0, 0.2);
+  
+  return window.fadeProgram.program;
 }
+
+function animate(timestamp) {
+    if (!lastTime) {
+      lastTime = timestamp;
+    }
+    const deltaTime = timestamp - lastTime;
+  
+    if (deltaTime >= tickInterval) {
+      compute_frame();
+      
+      gl.disable(gl.DEPTH_TEST);
+      const fadeProgram = fadeTrailsProgram();
+      gl.useProgram(fadeProgram);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.useProgram(program);
+      
+      const bodyData = updateBodyBuffers();
+      gl.bindBuffer(gl.ARRAY_BUFFER, bodyBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, bodyData, gl.DYNAMIC_DRAW);
+      
+      const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
+      
+      const positionLoc = gl.getAttribLocation(program, "a_position");
+      gl.enableVertexAttribArray(positionLoc);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 0);
+      
+      const sizeLoc = gl.getAttribLocation(program, "a_pointSize");
+      gl.enableVertexAttribArray(sizeLoc);
+      gl.vertexAttribPointer(sizeLoc, 1, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+      
+      const colorLoc = gl.getAttribLocation(program, "a_color");
+      gl.enableVertexAttribArray(colorLoc);
+      gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+      
+      const resolutionLoc = gl.getUniformLocation(program, "u_resolution");
+      gl.uniform2f(resolutionLoc, glCanvas.width, glCanvas.height);
+      
+      gl.drawArrays(gl.POINTS, 0, bodies.length);
+      
+      ctx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+      
+      diagnostics.update_particle_count(bodies.length);
+      menu.draw();
+      submenu.draw();
+      diagnostics.draw();
+  
+      lastTime = timestamp;
+    }
+  
+    requestAnimationFrame(animate);
+  }
 
 function menu_icon(x, y) {
   if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.y + menu.height) {
@@ -546,23 +719,23 @@ function spawnBrushParticles(x, y) {
     }
 }
 
-canvas.addEventListener('click', function(event) {
+uiCanvas.addEventListener('click', function(event) {
   const x = event.pageX;
   const y = event.pageY;
 
   let icon = menu_icon(x, y);
   if (icon === 0) {
     tool = Tools.CURSOR;
-    canvas.style.cursor = "default";
+    uiCanvas.style.cursor = "default";
   } else if (icon === 1) {
     tool = Tools.BRUSH;
-    canvas.style.cursor = "crosshair";
+    uiCanvas.style.cursor = "crosshair";
   } else {
     submenu_click(x, y);
   }
 }, false);
 
-canvas.addEventListener('mousedown', function(event) {
+uiCanvas.addEventListener('mousedown', function(event) {
     const x = event.pageX;
     const y = event.pageY;
     if (tool === Tools.BRUSH) {
@@ -575,7 +748,7 @@ canvas.addEventListener('mousedown', function(event) {
     submenu.handleMouseDown(x,y);
 });
 
-canvas.addEventListener('mousemove', function(event) {
+uiCanvas.addEventListener('mousemove', function(event) {
   const x = event.pageX;
   const y = event.pageY;
 
@@ -592,7 +765,7 @@ canvas.addEventListener('mousemove', function(event) {
     submenu.handleMouseMove(x,y);
 });
 
-canvas.addEventListener('mouseup', function() {
+uiCanvas.addEventListener('mouseup', function() {
     if (tool === Tools.BRUSH) {
         isDragging = false;
         brush.reset_density_counter();
@@ -612,5 +785,9 @@ playPauseButton.addEventListener("click", () => {
 });
 
 ctx.fillStyle = "black";
-ctx.fillRect(0,0,canvas.width, canvas.height);
+ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
+
+fadeTrailsProgram();
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
 animate(performance.now());
