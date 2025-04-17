@@ -479,7 +479,20 @@ function compute_frame() {
     default:
       console.error("Unknown algorithm");
       break;
+  }
+
+  // delete particles that go out of frame
+  const padding = 200;
+  const width = glCanvas.width;
+  const height = glCanvas.height;
+
+  for (let i = bodies.length - 1; i >= 0; i--) {
+    const b = bodies[i];
+    if (!b.isSun && (b.x < -padding || b.x > width + padding || b.y < -padding || b.y > height + padding)) {
+      bodies.splice(i, 1);
     }
+  }
+
   const compute_time = performance.now() - start;
   diagnostics.update_time(compute_time);
 }
