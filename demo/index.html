@@ -40,6 +40,27 @@
       display: none;
       z-index: 10;
     }
+
+    #screenshotButton {
+      position: fixed;
+      bottom: 20px;
+      left: calc(50% + 100px);
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    #recordButton {
+      position: fixed;
+      bottom: 20px;
+      left: calc(50% + 225px);
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    #recordButton.recording {
+      background-color: #ff4136;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -47,6 +68,8 @@
   <canvas id="canvas"></canvas>
   <input id="colorPicker" type="color" />
   <button id="playPauseButton">Pause</button>
+  <button id="screenshotButton">Screenshot</button>
+  <button id="recordButton">Start Recording</button>
   <script src="script.js"></script>
 </body>
 </html>

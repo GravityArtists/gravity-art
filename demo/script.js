@@ -94,6 +94,8 @@ window.addEventListener('resize', () => {
 
 const colorPicker = document.getElementById("colorPicker");
 const playPauseButton = document.getElementById("playPauseButton");
+const screenshotButton = document.getElementById("screenshotButton");
+const recordButton = document.getElementById("recordButton");
 
 const Tools = {
   CURSOR: "cursor",
@@ -571,7 +573,6 @@ function compute_frame() {
   ));
 }
 
-
 function n_squared() {
   for (let body of bodies) {
     body.compute_n_squared(bodies);
@@ -784,10 +785,93 @@ playPauseButton.addEventListener("click", () => {
   playPauseButton.textContent = paused ? "Play" : "Pause";
 });
 
+screenshotButton.addEventListener("click", () => {
+  const fileName = `gravity-art-${Date.now()}.png`;
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = glCanvas.width;
+  tempCanvas.height = glCanvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+  
+  tempCtx.drawImage(glCanvas, 0, 0);
+  
+  const link = document.createElement('a');
+  link.download = fileName;
+  link.href = tempCanvas.toDataURL('image/png');
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
+
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+
+function startRecording() {
+  recordedChunks = [];
+  
+  const stream = glCanvas.captureStream(60); 
+  
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+  
+  let seconds = 0;
+  const recordingTimer = setInterval(() => {
+    seconds++;
+    recordButton.textContent = `Recording: ${seconds}s`;
+    
+    if (seconds >= 60) {
+      clearInterval(recordingTimer);
+      recordButton.click();
+    }
+  }, 1000);
+  
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+  };
+  
+  mediaRecorder.onstop = () => {
+    clearInterval(recordingTimer);
+    
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gravity-art-${Date.now()}.webm`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+  
+  mediaRecorder.start(100);
+}
+
+recordButton.addEventListener("click", () => {
+  if (!isRecording) {
+    startRecording();
+    recordButton.textContent = "Stop Recording";
+    recordButton.classList.add("recording");
+    isRecording = true;
+  } else {
+    mediaRecorder.stop();
+    recordButton.textContent = "Start Recording";
+    recordButton.classList.remove("recording");
+    isRecording = false;
+  }
+});
+
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
 
-fadeTrailsProgram();
-gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+// fadeTrailsProgram();
+// gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 animate(performance.now());
