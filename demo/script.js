@@ -94,6 +94,8 @@ window.addEventListener('resize', () => {
 
 const colorPicker = document.getElementById("colorPicker");
 const playPauseButton = document.getElementById("playPauseButton");
+const screenshotButton = document.getElementById("screenshotButton");
+const recordButton = document.getElementById("recordButton");
 
 const Tools = {
   CURSOR: "cursor",
@@ -117,7 +119,7 @@ const orbitRadius = glCanvas.width / 4;
 
 let tool = Tools.CURSOR;
 let hover = Hover.NONE;
-let algorithm = Algorithms.KD;
+let algorithm = Algorithms.N_SQUARED;
 let isDragging = false;
 let lastBrushX = null;
 let lastBrushY = null;
@@ -467,80 +469,6 @@ let lastTime = null;
 const tickRate = 60;
 const tickInterval = 1000 / tickRate;
 
-class KDNode {
-  constructor(body, depth = 0, left = null, right = null) {
-    this.body = body;
-    this.depth = depth;
-    this.left = left;
-    this.right = right;
-  }
-}
-
-class KDTree {
-  constructor(bodies) {
-    this.root = this.build(bodies, 0);
-  }
-
-  build(bodies, depth) {
-    if (bodies.length === 0) return null;
-
-    const axis = depth % 2;
-    const key = axis === 0 ? 'x' : 'y';
-
-    bodies.sort((a, b) => a[key] - b[key]);
-    const median = Math.floor(bodies.length / 2);
-
-    return new KDNode(
-      bodies[median],
-      depth,
-      this.build(bodies.slice(0, median), depth + 1),
-      this.build(bodies.slice(median + 1), depth + 1)
-    );
-  }
-
-  computeForces(body, node) {
-    if (!node || body === node.body) return { ax: 0, ay: 0 };
-
-    const dx = node.body.x - body.x;
-    const dy = node.body.y - body.y;
-    const distSq = dx * dx + dy * dy + 0.1;
-    const dist = Math.sqrt(distSq);
-    const force = (G * body.mass * node.body.mass) / distSq;
-    const acc = force / body.mass;
-
-    let ax = (dx / dist) * acc;
-    let ay = (dy / dist) * acc;
-
-    const axis = node.depth % 2;
-    const key = axis === 0 ? 'x' : 'y';
-
-    if (body[key] < node.body[key]) {
-      const leftForce = this.computeForces(body, node.left);
-      ax += leftForce.ax;
-      ay += leftForce.ay;
-    } else {
-      const rightForce = this.computeForces(body, node.right);
-      ax += rightForce.ax;
-      ay += rightForce.ay;
-    }
-
-    return { ax, ay };
-  }
-}
-
-function kd_compute() {
-  const tree = new KDTree(bodies);
-
-  for (let body of bodies) {
-    if (body.isSun || paused) continue;
-    const { ax, ay } = tree.computeForces(body, tree.root);
-    body.vx += ax;
-    body.vy += ay;
-    body.x += body.vx;
-    body.y += body.vy;
-  }
-}
-
 function compute_frame() {
   let start = performance.now();
   switch(algorithm) {
@@ -549,28 +477,14 @@ function compute_frame() {
       break;
     case Algorithms.KD:
       // Implement KD algorithm logic here
-      // Justin: I also heard barnes hut is good for 2D
-      kd_compute();
       break;
     default:
       console.error("Unknown algorithm");
       break;
-  }
+    }
   const compute_time = performance.now() - start;
   diagnostics.update_time(compute_time);
-
-  // delete particles that go out of bounds
-  // this makes computing far more efficient
-
-  const padding = 200;
-  bodies.splice(0, bodies.length, ...bodies.filter(
-    b => b.isSun || (
-      b.x >= -padding && b.x <= canvas.width + padding &&
-      b.y >= -padding && b.y <= canvas.height + padding
-    )
-  ));
 }
-
 
 function n_squared() {
   for (let body of bodies) {
@@ -579,7 +493,6 @@ function n_squared() {
 }
 
 function fadeTrailsProgram() {
-  // Only create this once
   if (!window.fadeProgram) {
     const vertexShaderSource = `
       attribute vec2 position;
@@ -784,10 +697,93 @@ playPauseButton.addEventListener("click", () => {
   playPauseButton.textContent = paused ? "Play" : "Pause";
 });
 
+screenshotButton.addEventListener("click", () => {
+  const fileName = `gravity-art-${Date.now()}.png`;
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = glCanvas.width;
+  tempCanvas.height = glCanvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+  
+  tempCtx.drawImage(glCanvas, 0, 0);
+  
+  const link = document.createElement('a');
+  link.download = fileName;
+  link.href = tempCanvas.toDataURL('image/png');
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
+
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+
+function startRecording() {
+  recordedChunks = [];
+  
+  const stream = glCanvas.captureStream(60); 
+  
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+  
+  let seconds = 0;
+  const recordingTimer = setInterval(() => {
+    seconds++;
+    recordButton.textContent = `Recording: ${seconds}s`;
+    
+    if (seconds >= 60) {
+      clearInterval(recordingTimer);
+      recordButton.click();
+    }
+  }, 1000);
+  
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+  };
+  
+  mediaRecorder.onstop = () => {
+    clearInterval(recordingTimer);
+    
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gravity-art-${Date.now()}.webm`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+  
+  mediaRecorder.start(100);
+}
+
+recordButton.addEventListener("click", () => {
+  if (!isRecording) {
+    startRecording();
+    recordButton.textContent = "Stop Recording";
+    recordButton.classList.add("recording");
+    isRecording = true;
+  } else {
+    mediaRecorder.stop();
+    recordButton.textContent = "Start Recording";
+    recordButton.classList.remove("recording");
+    isRecording = false;
+  }
+});
+
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
 
-fadeTrailsProgram();
-gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+// fadeTrailsProgram();
+// gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 animate(performance.now());
