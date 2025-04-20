@@ -166,7 +166,7 @@ class Menu {
     this.width = uiCanvas.width * 0.2;
     this.height = uiCanvas.height * 0.1;
     this.x = uiCanvas.width - this.width - 20;
-    this.y = this.height - 20;
+    this.y = this.height;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
     this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
     this.play_pause_icon = new Icon(this.width, "./assets/pause-icon.png");
@@ -201,14 +201,14 @@ class BrushSubMenu {
     constructor(parentMenu, brush) {
         this.parentMenu = parentMenu;
         this.width = parentMenu.width;
-        this.height = uiCanvas.height - parentMenu.height - 100; // Increased height to accommodate slider
+        this.height = parentMenu.height * 5; // Increased height to accommodate slider
         this.x = parentMenu.x;
         this.y = parentMenu.y + parentMenu.height;
         this.options = ["Point", "Scatter"];
-        this.density_slider = new Slider("density", this.x + 10, this.y + this.height - 200, 100, brush.density);
-        this.size_slider = new Slider("size", this.x + 10, this.y + this.height - 150, 100, brush.size);
-        this.spread_slider = new Slider("spread", this.x + 10, this.y + this.height - 100, 100, brush.spread);
-        this.count_slider = new Slider("count", this.x + 10, this.y + this.height - 50, 100, brush.count);
+        this.density_slider = new Slider("density", this.x + 10, this.y + this.height * .2, this.width - 20, brush.density);
+        this.size_slider = new Slider("size", this.x + 10, this.y + this.height * .4, this.width - 20, brush.size);
+        this.spread_slider = new Slider("spread", this.x + 10, this.y + this.height * .6, this.width - 20, brush.spread);
+        this.count_slider = new Slider("count", this.x + 10, this.y + this.height *.8, this.width - 20, brush.count);
         this.size = {value: 5};
         this.spread = {value: 30};
         this.count = {value: 10};
@@ -224,23 +224,24 @@ class BrushSubMenu {
         if (tool === Tools.BRUSH) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.font = '16px Arial';
-            const optionHeight = 100 // Adjusted for slider space
+            //ctx.font = '16px Arial';
+            const optionHeight = this.height * .1 // Adjusted for slider space
+            
             for (let i = 0; i < this.options.length; i++) {
-                const optionY = this.y + i * optionHeight;
+                const optionX = this.x + i * this.width / 2;
 
                 if (brush.style === this.options[i].toLowerCase()) {
                     ctx.strokeStyle = 'white';
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(this.x, optionY, this.width, optionHeight);
+                    ctx.strokeRect(optionX, this.y, this.width / 2, optionHeight);
                 }
 
                 ctx.fillStyle = 'white';
-                ctx.fillText(this.options[i], this.x + 10, optionY + optionHeight / 2);
+                ctx.fillText(this.options[i], 10 + optionX, this.y + optionHeight / 2);
             }
 
-            const colorPickerX = this.x + this.width * .3;
-            const colorPickerY = this.y + this.height - 30;
+            const colorPickerX = this.x + 10;
+            const colorPickerY = this.y + this.height *.9;
 
 
             colorPicker.style.display = "block";
@@ -698,15 +699,29 @@ function menu_icon(x, y) {
 
 function submenu_click(x, y) {
     if (tool !== Tools.BRUSH) return;
-    const optionHeight = 100
+
+    const optionHeight = submenu.height * .1; // Adjusted for slider space
+
     for (let i = 0; i < submenu.options.length; i++) {
-        const optionY = submenu.y + i * optionHeight;
-        if (x >= submenu.x && x <= submenu.x + submenu.width &&
-            y >= optionY && y <= optionY + optionHeight) {
-            brush.style = submenu.options[i].toLowerCase();
-            return;
-        }
+      const optionX = submenu.x + i * submenu.width / 2;
+      if (x >= optionX && x <= optionX + submenu.width / 2 &&
+          y >= submenu.y && y <= submenu.y + optionHeight) {
+          brush.style = submenu.options[i].toLowerCase();
+          return;
+      }
     }
+
+  
+    // if (tool !== Tools.BRUSH) return;
+    // const optionHeight = 100
+    // for (let i = 0; i < submenu.options.length; i++) {
+    //     const optionY = submenu.y + i * optionHeight;
+    //     if (x >= submenu.x && x <= submenu.x + submenu.width &&
+    //         y >= optionY && y <= optionY + optionHeight) {
+    //         brush.style = submenu.options[i].toLowerCase();
+    //         return;
+    //     }
+    // }
 }
 
 function spawnBrushParticles(x, y) {
