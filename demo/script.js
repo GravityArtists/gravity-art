@@ -1,6 +1,5 @@
 const glCanvas = document.getElementById("glCanvas");
 const uiCanvas = document.getElementById("canvas");
-// const canvas = document.getElementById("canvas");
 
 glCanvas.width = window.innerWidth;
 glCanvas.height = window.innerHeight;
@@ -93,19 +92,23 @@ window.addEventListener('resize', () => {
 });
 
 const colorPicker = document.getElementById("colorPicker");
-const playPauseButton = document.getElementById("playPauseButton");
-const screenshotButton = document.getElementById("screenshotButton");
 const recordButton = document.getElementById("recordButton");
 
 const Tools = {
-  CURSOR: "cursor",
   BRUSH: "brush",
+  CURSOR: "cursor",
+  PLAY_PAUSE: "play_pause",
+  SCREENSHOT: "screenshot",
+  RECORD: "record",
 };
 
 const Hover = {
   NONE: -1,
-  CURSOR: 0,
-  BRUSH: 1,
+  BRUSH: 0,
+  CURSOR: 2,
+  PLAY_PAUSE: 2,
+  SCREENSHOT: 3,
+  RECORD: 4,
 };
 
 const Algorithms = {
@@ -161,33 +164,36 @@ class Icon {
 
 class Menu {
   constructor() {
-    this.width = uiCanvas.width * 0.1;
-    this.height = uiCanvas.height * 0.8;
+    this.width = uiCanvas.width * 0.2;
+    this.height = uiCanvas.height * 0.1;
     this.x = uiCanvas.width - this.width - 20;
-    this.y = (uiCanvas.height - this.height) / 2;
-    this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
+    this.y = this.height - 20;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
-    this.icons = [this.mouse_icon, this.paint_brush_icon];
-    this.icon_size = this.width - 20;
+    this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
+    this.play_pause_icon = new Icon(this.width, "./assets/play-icon.png");
+    this.screenshot_icon = new Icon(this.width, "./assets/screenshot-icon.png");
+    this.record_icon = new Icon(this.width, "./assets/record-icon.png");  
+    this.icons = [this.paint_brush_icon, this.mouse_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
+    this.icon_size = (this.width - 40) / 5;
   }
 
   draw() {
     const x_padding = 10;
     const y_padding = 10;
-    let y_offset = 0;
+    let x_offset = 0;
 
     ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     for (const icon of this.icons) {
-      ctx.drawImage(icon.image, this.x + x_padding, this.y + y_padding + y_offset, this.icon_size, this.icon_size);
-      y_offset += this.icon_size;
+      ctx.drawImage(icon.image, this.x + x_padding + x_offset, this.y + y_padding, this.icon_size, this.icon_size);
+      x_offset += this.icon_size;
     }
 
     if (hover != -1) {
       ctx.strokeStyle = 'white';
       ctx.lineWidth = 2;
-      ctx.strokeRect(this.x + x_padding, this.y + y_padding + this.icon_size * hover, this.icon_size, this.icon_size);
+      ctx.strokeRect(this.x + x_padding + this.icon_size * hover, this.y + y_padding, this.icon_size, this.icon_size);
     }
   }
 }
@@ -195,10 +201,10 @@ class Menu {
 class BrushSubMenu {
     constructor(parentMenu, brush) {
         this.parentMenu = parentMenu;
-        this.width = parentMenu.width * 0.8;
-        this.height = parentMenu.height * 0.8; // Increased height to accommodate slider
-        this.x = parentMenu.x - this.width - 10;
-        this.y = parentMenu.y + 20;
+        this.width = parentMenu.width;
+        this.height = uiCanvas.height - parentMenu.height; // Increased height to accommodate slider
+        this.x = parentMenu.x;
+        this.y = parentMenu.y + parentMenu.height;
         this.options = ["Point", "Scatter"];
         this.density_slider = new Slider("density", this.x + 10, this.y + this.height - 200, 100, brush.density);
         this.size_slider = new Slider("size", this.x + 10, this.y + this.height - 150, 100, brush.size);
@@ -678,8 +684,8 @@ function animate(timestamp) {
 function menu_icon(x, y) {
   if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.y + menu.height) {
     for (let i = 0; i < menu.icons.length; i++) {
-      const iconX = menu.x + 10;
-      const iconY = menu.y + 10 + i * menu.icon_size;
+      const iconX = menu.x + 10 + i * menu.icon_size;
+      const iconY = menu.y + 10;
       const iconWidth = menu.icon_size;
       const iconHeight = menu.icon_size;
 
@@ -725,14 +731,47 @@ uiCanvas.addEventListener('click', function(event) {
   const y = event.pageY;
 
   let icon = menu_icon(x, y);
-  if (icon === 0) {
-    tool = Tools.CURSOR;
-    uiCanvas.style.cursor = "default";
-  } else if (icon === 1) {
-    tool = Tools.BRUSH;
-    uiCanvas.style.cursor = "crosshair";
-  } else {
-    submenu_click(x, y);
+  switch (icon) {
+    case 0:
+      tool = Tools.BRUSH;
+      uiCanvas.style.cursor = "crosshair";
+      break;
+    case 1:
+      tool = Tools.CURSOR;
+      uiCanvas.style.cursor = "default";
+      break;
+    case 2:
+      tool = Tools.PLAY_PAUSE;
+      menu.play_pause_icon.image.src = paused ? "./assets/play-icon.png" : "./assets/pause-icon.png";
+      paused = !paused;
+      break;
+    case 3:
+      tool = Tools.SCREENSHOT;
+      // old screenshot button functionality
+      const fileName = `gravity-art-${Date.now()}.png`;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = glCanvas.width;
+      tempCanvas.height = glCanvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      tempCtx.drawImage(glCanvas, 0, 0);
+      
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = tempCanvas.toDataURL('image/png');
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      break;
+    case 4:
+      tool = Tools.RECORD;
+      menu.record_icon.image.src = isRecording ? "./assets/record-icon.png" : "./assets/record-icon-red.png";
+      recordButton.click();
+      break;
+    default:
+      submenu_click(x, y);
   }
 }, false);
 
@@ -780,29 +819,24 @@ colorPicker.addEventListener("input", (e) => {
   brush.color = e.target.value;
 });
 
-playPauseButton.addEventListener("click", () => {
-  paused = !paused;
-  playPauseButton.textContent = paused ? "Play" : "Pause";
-});
+// screenshotButton.addEventListener("click", () => {
+//   const fileName = `gravity-art-${Date.now()}.png`;
 
-screenshotButton.addEventListener("click", () => {
-  const fileName = `gravity-art-${Date.now()}.png`;
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = glCanvas.width;
-  tempCanvas.height = glCanvas.height;
-  const tempCtx = tempCanvas.getContext('2d');
+//   const tempCanvas = document.createElement('canvas');
+//   tempCanvas.width = glCanvas.width;
+//   tempCanvas.height = glCanvas.height;
+//   const tempCtx = tempCanvas.getContext('2d');
   
-  tempCtx.drawImage(glCanvas, 0, 0);
+//   tempCtx.drawImage(glCanvas, 0, 0);
   
-  const link = document.createElement('a');
-  link.download = fileName;
-  link.href = tempCanvas.toDataURL('image/png');
+//   const link = document.createElement('a');
+//   link.download = fileName;
+//   link.href = tempCanvas.toDataURL('image/png');
   
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-});
+//   document.body.appendChild(link);
+//   link.click();
+//   document.body.removeChild(link);
+// });
 
 let mediaRecorder;
 let recordedChunks = [];
