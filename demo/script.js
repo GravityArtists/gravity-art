@@ -92,7 +92,6 @@ window.addEventListener('resize', () => {
 });
 
 const colorPicker = document.getElementById("colorPicker");
-const recordButton = document.getElementById("recordButton");
 
 const Tools = {
   BRUSH: "brush",
@@ -170,7 +169,7 @@ class Menu {
     this.y = this.height - 20;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
     this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
-    this.play_pause_icon = new Icon(this.width, "./assets/play-icon.png");
+    this.play_pause_icon = new Icon(this.width, "./assets/pause-icon.png");
     this.screenshot_icon = new Icon(this.width, "./assets/screenshot-icon.png");
     this.record_icon = new Icon(this.width, "./assets/record-icon.png");  
     this.icons = [this.paint_brush_icon, this.mouse_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
@@ -202,7 +201,7 @@ class BrushSubMenu {
     constructor(parentMenu, brush) {
         this.parentMenu = parentMenu;
         this.width = parentMenu.width;
-        this.height = uiCanvas.height - parentMenu.height; // Increased height to accommodate slider
+        this.height = uiCanvas.height - parentMenu.height - 100; // Increased height to accommodate slider
         this.x = parentMenu.x;
         this.y = parentMenu.y + parentMenu.height;
         this.options = ["Point", "Scatter"];
@@ -742,11 +741,13 @@ uiCanvas.addEventListener('click', function(event) {
       break;
     case 2:
       tool = Tools.PLAY_PAUSE;
-      menu.play_pause_icon.image.src = paused ? "./assets/play-icon.png" : "./assets/pause-icon.png";
+      uiCanvas.style.cursor = "default";
+      menu.play_pause_icon.image.src = paused ? "./assets/pause-icon.png" : "./assets/play-icon.png";
       paused = !paused;
       break;
     case 3:
       tool = Tools.SCREENSHOT;
+      uiCanvas.style.cursor = "default";
       // old screenshot button functionality
       const fileName = `gravity-art-${Date.now()}.png`;
 
@@ -767,8 +768,15 @@ uiCanvas.addEventListener('click', function(event) {
       break;
     case 4:
       tool = Tools.RECORD;
-      menu.record_icon.image.src = isRecording ? "./assets/record-icon.png" : "./assets/record-icon-red.png";
-      recordButton.click();
+      uiCanvas.style.cursor = "default";
+      isRecording = !isRecording;
+      if (isRecording) {
+        startRecording();
+        menu.record_icon.image.src = "./assets/record-icon-red.png";
+      } else {
+        mediaRecorder.stop();
+        menu.record_icon.image.src = "./assets/record-icon.png";
+      }
       break;
     default:
       submenu_click(x, y);
@@ -852,11 +860,16 @@ function startRecording() {
   let seconds = 0;
   const recordingTimer = setInterval(() => {
     seconds++;
-    recordButton.textContent = `Recording: ${seconds}s`;
+    //recordButton.textContent = `Recording: ${seconds}s`;
     
     if (seconds >= 60) {
       clearInterval(recordingTimer);
-      recordButton.click();
+      //recordButton.click();
+      mediaRecorder.stop();
+      isRecording = false;
+      menu.record_icon.image.src = "./assets/record-icon.png";
+      // recordButton.textContent = "Start Recording";
+      // recordButton.classList.remove("recording");
     }
   }, 1000);
   
@@ -888,19 +901,19 @@ function startRecording() {
   mediaRecorder.start(100);
 }
 
-recordButton.addEventListener("click", () => {
-  if (!isRecording) {
-    startRecording();
-    recordButton.textContent = "Stop Recording";
-    recordButton.classList.add("recording");
-    isRecording = true;
-  } else {
-    mediaRecorder.stop();
-    recordButton.textContent = "Start Recording";
-    recordButton.classList.remove("recording");
-    isRecording = false;
-  }
-});
+// recordButton.addEventListener("click", () => {
+//   if (!isRecording) {
+//     startRecording();
+//     recordButton.textContent = "Stop Recording";
+//     recordButton.classList.add("recording");
+//     isRecording = true;
+//   } else {
+//     mediaRecorder.stop();
+//     recordButton.textContent = "Start Recording";
+//     recordButton.classList.remove("recording");
+//     isRecording = false;
+//   }
+// });
 
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
