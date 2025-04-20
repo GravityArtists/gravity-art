@@ -164,16 +164,16 @@ class Icon {
 class Menu {
   constructor() {
     this.width = uiCanvas.width * 0.2;
-    this.height = uiCanvas.height * 0.1;
+    this.height = this.width / 5 + 15;
     this.x = uiCanvas.width - this.width - 20;
-    this.y = this.height;
+    this.y = 20;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
     this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
     this.play_pause_icon = new Icon(this.width, "./assets/pause-icon.png");
     this.screenshot_icon = new Icon(this.width, "./assets/screenshot-icon.png");
     this.record_icon = new Icon(this.width, "./assets/record-icon.png");  
     this.icons = [this.paint_brush_icon, this.mouse_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
-    this.icon_size = (this.width - 40) / 5;
+    this.icon_size = (this.width - 20) / 5;
   }
 
   draw() {
