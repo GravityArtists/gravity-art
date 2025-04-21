@@ -94,9 +94,8 @@ window.addEventListener('resize', () => {
 const colorPicker = document.getElementById("colorPicker");
 
 const Tools = {
+  BRUSH_MENU: "brush-menu",
   BRUSH: "brush",
-  CURSOR: "cursor",
-  PLAY_PAUSE: "play_pause",
   SCREENSHOT: "screenshot",
   RECORD: "record",
 };
@@ -104,10 +103,9 @@ const Tools = {
 const Hover = {
   NONE: -1,
   BRUSH: 0,
-  CURSOR: 2,
-  PLAY_PAUSE: 2,
-  SCREENSHOT: 3,
-  RECORD: 4,
+  PLAY_PAUSE: 1,
+  SCREENSHOT: 2,
+  RECORD: 3,
 };
 
 const Algorithms = {
@@ -119,7 +117,7 @@ const G = 0.1;
 const numBodies = 300;
 const orbitRadius = glCanvas.width / 4;
 
-let tool = Tools.CURSOR;
+let tool = Tools.BRUSH;
 let hover = Hover.NONE;
 let algorithm = Algorithms.KD;
 let isDragging = false;
@@ -164,16 +162,15 @@ class Icon {
 class Menu {
   constructor() {
     this.width = uiCanvas.width * 0.2;
-    this.height = this.width / 5 + 15;
     this.x = uiCanvas.width - this.width - 20;
     this.y = 20;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
-    this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
     this.play_pause_icon = new Icon(this.width, "./assets/pause-icon.png");
     this.screenshot_icon = new Icon(this.width, "./assets/screenshot-icon.png");
     this.record_icon = new Icon(this.width, "./assets/record-icon.png");  
-    this.icons = [this.paint_brush_icon, this.mouse_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
-    this.icon_size = (this.width - 20) / 5;
+    this.icons = [this.paint_brush_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
+    this.height = this.width / this.icons.length + 15;
+    this.icon_size = (this.width - 20) / this.icons.length;
   }
 
   draw() {
@@ -194,6 +191,10 @@ class Menu {
       ctx.lineWidth = 2;
       ctx.strokeRect(this.x + x_padding + this.icon_size * hover, this.y + y_padding, this.icon_size, this.icon_size);
     }
+  }
+
+  checkBounds(x,y) {
+    return x >= this.x && x <= this.x + this.width && y >= this.y && y <= this.y + this.height;
   }
 }
 
@@ -221,7 +222,7 @@ class BrushSubMenu {
     }
 
     draw() {
-        if (tool === Tools.BRUSH) {
+        if (tool === Tools.BRUSH_MENU) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             ctx.fillRect(this.x, this.y, this.width, this.height);
             //ctx.font = '16px Arial';
@@ -258,21 +259,33 @@ class BrushSubMenu {
     }
 
     handleMouseDown(x, y) {
+      if (this.checkBounds(x,y)) {
         for (const slider of this.sliders) {
             slider.handleMouseDown(x, y);
         }
+        return true;
+      }
+      return false;
     }
 
     handleMouseMove(x, y) {
-        for (const slider of this.sliders) {
-            slider.handleMouseMove(x, y);
+        if (this.checkBounds(x,y)) {
+          for (const slider of this.sliders) {
+              slider.handleMouseMove(x, y);
+          }
+          return true;
         }
+        return false;
     }
 
     handleMouseUp() {
         for (const slider of this.sliders) {
             slider.handleMouseUp();
         }
+    }
+
+    checkBounds(x,y) {
+      return tool == Tools.BRUSH_MENU && x >= this.x && x <= this.x + this.width && y >= this.y && y <= this.y + this.height;
     }
 }
 
@@ -305,7 +318,6 @@ class Diagnostics {
   }
 
   update_particle_count(particle_count) {
-    console.log(particle_count);
     this.particle_count.value = particle_count;
   }
 
@@ -418,15 +430,6 @@ class Body {
     this.x += this.vx;
     this.y += this.vy;
   }
-
-  /*
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
-  }
-  */
 }
 
 function updateBodyBuffers() {
@@ -698,7 +701,7 @@ function menu_icon(x, y) {
 }
 
 function submenu_click(x, y) {
-    if (tool !== Tools.BRUSH) return;
+    if (tool !== Tools.BRUSH_MENU) return;
 
     const optionHeight = submenu.height * .1; // Adjusted for slider space
 
@@ -710,24 +713,11 @@ function submenu_click(x, y) {
           return;
       }
     }
-
-  
-    // if (tool !== Tools.BRUSH) return;
-    // const optionHeight = 100
-    // for (let i = 0; i < submenu.options.length; i++) {
-    //     const optionY = submenu.y + i * optionHeight;
-    //     if (x >= submenu.x && x <= submenu.x + submenu.width &&
-    //         y >= optionY && y <= optionY + optionHeight) {
-    //         brush.style = submenu.options[i].toLowerCase();
-    //         return;
-    //     }
-    // }
 }
 
 function spawnBrushParticles(x, y) {
     const color = brush.color;
     if (brush.style === Brush.BrushType.POINT) {
-        console.log(brush.size.value);
         bodies.push(new Body(x, y, color, brush.size.value * 30, 0, 0));
     } else if (brush.style === Brush.BrushType.SCATTER) {
         for (let i = 0; i < brush.count.value; i++) {
@@ -747,22 +737,19 @@ uiCanvas.addEventListener('click', function(event) {
   let icon = menu_icon(x, y);
   switch (icon) {
     case 0:
-      tool = Tools.BRUSH;
-      uiCanvas.style.cursor = "crosshair";
+      if (tool == Tools.BRUSH_MENU) {
+        tool = Tools.BRUSH;
+      }
+      else {
+        tool = Tools.BRUSH_MENU;
+      }
       break;
     case 1:
-      tool = Tools.CURSOR;
-      uiCanvas.style.cursor = "default";
-      break;
-    case 2:
-      tool = Tools.PLAY_PAUSE;
-      uiCanvas.style.cursor = "default";
       menu.play_pause_icon.image.src = paused ? "./assets/pause-icon.png" : "./assets/play-icon.png";
       paused = !paused;
       break;
-    case 3:
+    case 2:
       tool = Tools.SCREENSHOT;
-      uiCanvas.style.cursor = "default";
       // old screenshot button functionality
       const fileName = `gravity-art-${Date.now()}.png`;
 
@@ -781,9 +768,8 @@ uiCanvas.addEventListener('click', function(event) {
       link.click();
       document.body.removeChild(link);
       break;
-    case 4:
+    case 3:
       tool = Tools.RECORD;
-      uiCanvas.style.cursor = "default";
       isRecording = !isRecording;
       if (isRecording) {
         startRecording();
@@ -801,14 +787,15 @@ uiCanvas.addEventListener('click', function(event) {
 uiCanvas.addEventListener('mousedown', function(event) {
     const x = event.pageX;
     const y = event.pageY;
-    if (tool === Tools.BRUSH) {
-        isDragging = true;
-        lastBrushX = x;
-        lastBrushY = y;
-        brush.density_count();
-        spawnBrushParticles(x, y);
-    }
-    submenu.handleMouseDown(x,y);
+    if (!menu.checkBounds(x,y) && !submenu.handleMouseDown(x,y) &&
+      (tool === Tools.BRUSH || tool == Tools.BRUSH_MENU)) {
+
+      isDragging = true;
+      lastBrushX = x;
+      lastBrushY = y;
+      brush.density_count();
+      spawnBrushParticles(x, y);
+  }
 });
 
 uiCanvas.addEventListener('mousemove', function(event) {
@@ -818,19 +805,19 @@ uiCanvas.addEventListener('mousemove', function(event) {
   const icon = menu_icon(x, y);
   hover = icon !== -1 ? icon : Hover.NONE;
 
-    if (isDragging && tool === Tools.BRUSH) {
-        if (brush.density_count()) {
-            spawnBrushParticles(x, y);
-        }
-        lastBrushX = x;
-        lastBrushY = y;
-    }
-    submenu.handleMouseMove(x,y);
+  if (isDragging && (tool === Tools.BRUSH || tool === Tools.BRUSH_MENU)) {
+      if (brush.density_count()) {
+          spawnBrushParticles(x, y);
+      }
+      lastBrushX = x;
+      lastBrushY = y;
+  }
+  uiCanvas.style.cursor = submenu.handleMouseMove(x,y) || menu.checkBounds(x,y) ? "default" : "crosshair";
 });
 
 uiCanvas.addEventListener('mouseup', function() {
-    if (tool === Tools.BRUSH) {
-        isDragging = false;
+  isDragging = false;
+    if (tool === Tools.BRUSH || tool === Tools.BRUSH_MENU) {
         brush.reset_density_counter();
         lastBrushX = null;
         lastBrushY = null;
@@ -841,25 +828,6 @@ uiCanvas.addEventListener('mouseup', function() {
 colorPicker.addEventListener("input", (e) => {
   brush.color = e.target.value;
 });
-
-// screenshotButton.addEventListener("click", () => {
-//   const fileName = `gravity-art-${Date.now()}.png`;
-
-//   const tempCanvas = document.createElement('canvas');
-//   tempCanvas.width = glCanvas.width;
-//   tempCanvas.height = glCanvas.height;
-//   const tempCtx = tempCanvas.getContext('2d');
-  
-//   tempCtx.drawImage(glCanvas, 0, 0);
-  
-//   const link = document.createElement('a');
-//   link.download = fileName;
-//   link.href = tempCanvas.toDataURL('image/png');
-  
-//   document.body.appendChild(link);
-//   link.click();
-//   document.body.removeChild(link);
-// });
 
 let mediaRecorder;
 let recordedChunks = [];
@@ -875,16 +843,12 @@ function startRecording() {
   let seconds = 0;
   const recordingTimer = setInterval(() => {
     seconds++;
-    //recordButton.textContent = `Recording: ${seconds}s`;
     
     if (seconds >= 60) {
       clearInterval(recordingTimer);
-      //recordButton.click();
       mediaRecorder.stop();
       isRecording = false;
       menu.record_icon.image.src = "./assets/record-icon.png";
-      // recordButton.textContent = "Start Recording";
-      // recordButton.classList.remove("recording");
     }
   }, 1000);
   
@@ -916,24 +880,8 @@ function startRecording() {
   mediaRecorder.start(100);
 }
 
-// recordButton.addEventListener("click", () => {
-//   if (!isRecording) {
-//     startRecording();
-//     recordButton.textContent = "Stop Recording";
-//     recordButton.classList.add("recording");
-//     isRecording = true;
-//   } else {
-//     mediaRecorder.stop();
-//     recordButton.textContent = "Start Recording";
-//     recordButton.classList.remove("recording");
-//     isRecording = false;
-//   }
-// });
-
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
-
-// fadeTrailsProgram();
-// gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+uiCanvas.style.cursor = "crosshair";
 
 animate(performance.now());
