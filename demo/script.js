@@ -789,7 +789,6 @@ uiCanvas.addEventListener('click', function(event) {
       paused = !paused;
       break;
     case 2:
-      tool = Tools.SCREENSHOT;
       // old screenshot button functionality
       const fileName = `gravity-art-${Date.now()}.png`;
 
@@ -809,7 +808,6 @@ uiCanvas.addEventListener('click', function(event) {
       document.body.removeChild(link);
       break;
     case 3:
-      tool = Tools.RECORD;
       isRecording = !isRecording;
       if (isRecording) {
         startRecording();
