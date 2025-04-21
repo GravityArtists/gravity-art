@@ -92,6 +92,7 @@ window.addEventListener('resize', () => {
 });
 
 const colorPicker = document.getElementById("colorPicker");
+const rainbowMode = document.getElementById("rainbowMode");
 
 const Tools = {
   BRUSH_MENU: "brush-menu",
@@ -124,6 +125,28 @@ let isDragging = false;
 let lastBrushX = null;
 let lastBrushY = null;
 let paused = false;
+
+const colors = [
+  "#FF0000", // Red
+  "#00FF00", // Green
+  "#0000FF", // Blue
+  "#FFFF00", // Yellow
+  "#00FFFF", // Cyan
+  "#FF00FF", // Magenta
+  "#FFFFFF", // White
+  "#FFA500", // Orange
+  "#FFC0CB", // Pink
+  "#800080", // Purple
+  "#ADD8E6", // Light Blue
+  "#006400", // Dark Green
+  "#FFD700", // Gold
+  "#C0C0C0", // Silver
+  "#F5F5DC", // Beige
+  "#800000", // Maroon
+  "#008080", // Teal
+  "#000080"  // Navy
+];
+
 class Brush {
   static BrushType = {
     POINT: "point",
@@ -139,6 +162,7 @@ class Brush {
         this.density_counter = 0;
         this.max_density = 100;
         this.color = "#0000ff";
+        this.rainbowMode = false;
     }
 
     density_count() {
@@ -148,6 +172,14 @@ class Brush {
 
   reset_density_counter() {
     this.density_counter = 0;
+  }
+  getColor() {
+    if (!this.rainbowMode) return this.color;
+    return this.generateColor();
+  }
+
+  generateColor() {
+    return colors[Math.floor(Math.random()*colors.length)];
   }
 }
 
@@ -225,7 +257,6 @@ class BrushSubMenu {
         if (tool === Tools.BRUSH_MENU) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            //ctx.font = '16px Arial';
             const optionHeight = this.height * .1 // Adjusted for slider space
             
             for (let i = 0; i < this.options.length; i++) {
@@ -238,23 +269,33 @@ class BrushSubMenu {
                 }
 
                 ctx.fillStyle = 'white';
+                ctx.font = '16px Arial';
                 ctx.fillText(this.options[i], 10 + optionX, this.y + optionHeight / 2);
             }
 
             const colorPickerX = this.x + 10;
-            const colorPickerY = this.y + this.height *.9;
-
+            const colorPickerY = this.y + this.height * 0.9;
+            const rainbowModeX = this.x + this.width*.75;
+            const rainbowModeY = colorPickerY;
 
             colorPicker.style.display = "block";
-
             colorPicker.style.left = `${colorPickerX}px`;
             colorPicker.style.top = `${colorPickerY}px`;
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.font = '16px Arial';
+            ctx.fillText("rainbow mode", rainbowModeX-105, rainbowModeY+17);
+            rainbowMode.style.display = "block";
+            rainbowMode.style.left = `${rainbowModeX}px`;
+            rainbowMode.style.top = `${rainbowModeY}px`;
 
             for (const slider of this.sliders) {
                 slider.draw();
             }
         } else {
           colorPicker.style.display = "none";
+          rainbowMode.style.display = "none";
         }
     }
 
@@ -716,16 +757,15 @@ function submenu_click(x, y) {
 }
 
 function spawnBrushParticles(x, y) {
-    const color = brush.color;
     if (brush.style === Brush.BrushType.POINT) {
-        bodies.push(new Body(x, y, color, brush.size.value * 30, 0, 0));
+        bodies.push(new Body(x, y, brush.getColor(), brush.size.value * 30, 0, 0));
     } else if (brush.style === Brush.BrushType.SCATTER) {
         for (let i = 0; i < brush.count.value; i++) {
-            const angle = Math.random() * 2 * Math.PI;
-            const radius = Math.random() * brush.spread.value;
-            const dx = Math.cos(angle) * radius;
-            const dy = Math.sin(angle) * radius;
-            bodies.push(new Body(x + dx, y + dy, color, Math.random() * 30 * brush.size.value, 0, 0));
+          const angle = Math.random() * 2 * Math.PI;
+          const radius = Math.random() * brush.spread.value;
+          const dx = Math.cos(angle) * radius;
+          const dy = Math.sin(angle) * radius;
+          bodies.push(new Body(x + dx, y + dy, brush.getColor(), Math.random() * 30 * brush.size.value, 0, 0));
         }
     }
 }
@@ -828,6 +868,10 @@ uiCanvas.addEventListener('mouseup', function() {
 colorPicker.addEventListener("input", (e) => {
   brush.color = e.target.value;
 });
+
+rainbowMode.addEventListener("input", (e) => {
+  brush.rainbowMode = !brush.rainbowMode;
+})
 
 let mediaRecorder;
 let recordedChunks = [];
