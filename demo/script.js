@@ -1,6 +1,5 @@
 const glCanvas = document.getElementById("glCanvas");
 const uiCanvas = document.getElementById("canvas");
-// const canvas = document.getElementById("canvas");
 
 glCanvas.width = window.innerWidth;
 glCanvas.height = window.innerHeight;
@@ -93,19 +92,22 @@ window.addEventListener('resize', () => {
 });
 
 const colorPicker = document.getElementById("colorPicker");
-const playPauseButton = document.getElementById("playPauseButton");
-const screenshotButton = document.getElementById("screenshotButton");
-const recordButton = document.getElementById("recordButton");
 
 const Tools = {
-  CURSOR: "cursor",
   BRUSH: "brush",
+  CURSOR: "cursor",
+  PLAY_PAUSE: "play_pause",
+  SCREENSHOT: "screenshot",
+  RECORD: "record",
 };
 
 const Hover = {
   NONE: -1,
-  CURSOR: 0,
-  BRUSH: 1,
+  BRUSH: 0,
+  CURSOR: 2,
+  PLAY_PAUSE: 2,
+  SCREENSHOT: 3,
+  RECORD: 4,
 };
 
 const Algorithms = {
@@ -161,33 +163,36 @@ class Icon {
 
 class Menu {
   constructor() {
-    this.width = uiCanvas.width * 0.1;
-    this.height = uiCanvas.height * 0.8;
+    this.width = uiCanvas.width * 0.2;
+    this.height = this.width / 5 + 15;
     this.x = uiCanvas.width - this.width - 20;
-    this.y = (uiCanvas.height - this.height) / 2;
-    this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
+    this.y = 20;
     this.paint_brush_icon = new Icon(this.width, "./assets/paint-brush-icon.png");
-    this.icons = [this.mouse_icon, this.paint_brush_icon];
-    this.icon_size = this.width - 20;
+    this.mouse_icon = new Icon(this.width, "./assets/mouse-icon.png");
+    this.play_pause_icon = new Icon(this.width, "./assets/pause-icon.png");
+    this.screenshot_icon = new Icon(this.width, "./assets/screenshot-icon.png");
+    this.record_icon = new Icon(this.width, "./assets/record-icon.png");  
+    this.icons = [this.paint_brush_icon, this.mouse_icon, this.play_pause_icon, this.screenshot_icon, this.record_icon];
+    this.icon_size = (this.width - 20) / 5;
   }
 
   draw() {
     const x_padding = 10;
     const y_padding = 10;
-    let y_offset = 0;
+    let x_offset = 0;
 
     ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     for (const icon of this.icons) {
-      ctx.drawImage(icon.image, this.x + x_padding, this.y + y_padding + y_offset, this.icon_size, this.icon_size);
-      y_offset += this.icon_size;
+      ctx.drawImage(icon.image, this.x + x_padding + x_offset, this.y + y_padding, this.icon_size, this.icon_size);
+      x_offset += this.icon_size;
     }
 
     if (hover != -1) {
       ctx.strokeStyle = 'white';
       ctx.lineWidth = 2;
-      ctx.strokeRect(this.x + x_padding, this.y + y_padding + this.icon_size * hover, this.icon_size, this.icon_size);
+      ctx.strokeRect(this.x + x_padding + this.icon_size * hover, this.y + y_padding, this.icon_size, this.icon_size);
     }
   }
 }
@@ -195,15 +200,15 @@ class Menu {
 class BrushSubMenu {
     constructor(parentMenu, brush) {
         this.parentMenu = parentMenu;
-        this.width = parentMenu.width * 0.8;
-        this.height = parentMenu.height * 0.8; // Increased height to accommodate slider
-        this.x = parentMenu.x - this.width - 10;
-        this.y = parentMenu.y + 20;
+        this.width = parentMenu.width;
+        this.height = parentMenu.height * 5; // Increased height to accommodate slider
+        this.x = parentMenu.x;
+        this.y = parentMenu.y + parentMenu.height;
         this.options = ["Point", "Scatter"];
-        this.density_slider = new Slider("density", this.x + 10, this.y + this.height - 200, 100, brush.density);
-        this.size_slider = new Slider("size", this.x + 10, this.y + this.height - 150, 100, brush.size);
-        this.spread_slider = new Slider("spread", this.x + 10, this.y + this.height - 100, 100, brush.spread);
-        this.count_slider = new Slider("count", this.x + 10, this.y + this.height - 50, 100, brush.count);
+        this.density_slider = new Slider("density", this.x + 10, this.y + this.height * .2, this.width - 20, brush.density);
+        this.size_slider = new Slider("size", this.x + 10, this.y + this.height * .4, this.width - 20, brush.size);
+        this.spread_slider = new Slider("spread", this.x + 10, this.y + this.height * .6, this.width - 20, brush.spread);
+        this.count_slider = new Slider("count", this.x + 10, this.y + this.height *.8, this.width - 20, brush.count);
         this.size = {value: 5};
         this.spread = {value: 30};
         this.count = {value: 10};
@@ -219,23 +224,24 @@ class BrushSubMenu {
         if (tool === Tools.BRUSH) {
             ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.font = '16px Arial';
-            const optionHeight = 100 // Adjusted for slider space
+            //ctx.font = '16px Arial';
+            const optionHeight = this.height * .1 // Adjusted for slider space
+            
             for (let i = 0; i < this.options.length; i++) {
-                const optionY = this.y + i * optionHeight;
+                const optionX = this.x + i * this.width / 2;
 
                 if (brush.style === this.options[i].toLowerCase()) {
                     ctx.strokeStyle = 'white';
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(this.x, optionY, this.width, optionHeight);
+                    ctx.strokeRect(optionX, this.y, this.width / 2, optionHeight);
                 }
 
                 ctx.fillStyle = 'white';
-                ctx.fillText(this.options[i], this.x + 10, optionY + optionHeight / 2);
+                ctx.fillText(this.options[i], 10 + optionX, this.y + optionHeight / 2);
             }
 
-            const colorPickerX = this.x + this.width * .3;
-            const colorPickerY = this.y + this.height - 30;
+            const colorPickerX = this.x + 10;
+            const colorPickerY = this.y + this.height *.9;
 
 
             colorPicker.style.display = "block";
@@ -678,8 +684,8 @@ function animate(timestamp) {
 function menu_icon(x, y) {
   if (x >= menu.x && x <= menu.x + menu.width && y >= menu.y && y <= menu.y + menu.height) {
     for (let i = 0; i < menu.icons.length; i++) {
-      const iconX = menu.x + 10;
-      const iconY = menu.y + 10 + i * menu.icon_size;
+      const iconX = menu.x + 10 + i * menu.icon_size;
+      const iconY = menu.y + 10;
       const iconWidth = menu.icon_size;
       const iconHeight = menu.icon_size;
 
@@ -693,15 +699,29 @@ function menu_icon(x, y) {
 
 function submenu_click(x, y) {
     if (tool !== Tools.BRUSH) return;
-    const optionHeight = 100
+
+    const optionHeight = submenu.height * .1; // Adjusted for slider space
+
     for (let i = 0; i < submenu.options.length; i++) {
-        const optionY = submenu.y + i * optionHeight;
-        if (x >= submenu.x && x <= submenu.x + submenu.width &&
-            y >= optionY && y <= optionY + optionHeight) {
-            brush.style = submenu.options[i].toLowerCase();
-            return;
-        }
+      const optionX = submenu.x + i * submenu.width / 2;
+      if (x >= optionX && x <= optionX + submenu.width / 2 &&
+          y >= submenu.y && y <= submenu.y + optionHeight) {
+          brush.style = submenu.options[i].toLowerCase();
+          return;
+      }
     }
+
+  
+    // if (tool !== Tools.BRUSH) return;
+    // const optionHeight = 100
+    // for (let i = 0; i < submenu.options.length; i++) {
+    //     const optionY = submenu.y + i * optionHeight;
+    //     if (x >= submenu.x && x <= submenu.x + submenu.width &&
+    //         y >= optionY && y <= optionY + optionHeight) {
+    //         brush.style = submenu.options[i].toLowerCase();
+    //         return;
+    //     }
+    // }
 }
 
 function spawnBrushParticles(x, y) {
@@ -725,14 +745,56 @@ uiCanvas.addEventListener('click', function(event) {
   const y = event.pageY;
 
   let icon = menu_icon(x, y);
-  if (icon === 0) {
-    tool = Tools.CURSOR;
-    uiCanvas.style.cursor = "default";
-  } else if (icon === 1) {
-    tool = Tools.BRUSH;
-    uiCanvas.style.cursor = "crosshair";
-  } else {
-    submenu_click(x, y);
+  switch (icon) {
+    case 0:
+      tool = Tools.BRUSH;
+      uiCanvas.style.cursor = "crosshair";
+      break;
+    case 1:
+      tool = Tools.CURSOR;
+      uiCanvas.style.cursor = "default";
+      break;
+    case 2:
+      tool = Tools.PLAY_PAUSE;
+      uiCanvas.style.cursor = "default";
+      menu.play_pause_icon.image.src = paused ? "./assets/pause-icon.png" : "./assets/play-icon.png";
+      paused = !paused;
+      break;
+    case 3:
+      tool = Tools.SCREENSHOT;
+      uiCanvas.style.cursor = "default";
+      // old screenshot button functionality
+      const fileName = `gravity-art-${Date.now()}.png`;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = glCanvas.width;
+      tempCanvas.height = glCanvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      tempCtx.drawImage(glCanvas, 0, 0);
+      
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = tempCanvas.toDataURL('image/png');
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      break;
+    case 4:
+      tool = Tools.RECORD;
+      uiCanvas.style.cursor = "default";
+      isRecording = !isRecording;
+      if (isRecording) {
+        startRecording();
+        menu.record_icon.image.src = "./assets/record-icon-red.png";
+      } else {
+        mediaRecorder.stop();
+        menu.record_icon.image.src = "./assets/record-icon.png";
+      }
+      break;
+    default:
+      submenu_click(x, y);
   }
 }, false);
 
@@ -780,29 +842,24 @@ colorPicker.addEventListener("input", (e) => {
   brush.color = e.target.value;
 });
 
-playPauseButton.addEventListener("click", () => {
-  paused = !paused;
-  playPauseButton.textContent = paused ? "Play" : "Pause";
-});
+// screenshotButton.addEventListener("click", () => {
+//   const fileName = `gravity-art-${Date.now()}.png`;
 
-screenshotButton.addEventListener("click", () => {
-  const fileName = `gravity-art-${Date.now()}.png`;
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = glCanvas.width;
-  tempCanvas.height = glCanvas.height;
-  const tempCtx = tempCanvas.getContext('2d');
+//   const tempCanvas = document.createElement('canvas');
+//   tempCanvas.width = glCanvas.width;
+//   tempCanvas.height = glCanvas.height;
+//   const tempCtx = tempCanvas.getContext('2d');
   
-  tempCtx.drawImage(glCanvas, 0, 0);
+//   tempCtx.drawImage(glCanvas, 0, 0);
   
-  const link = document.createElement('a');
-  link.download = fileName;
-  link.href = tempCanvas.toDataURL('image/png');
+//   const link = document.createElement('a');
+//   link.download = fileName;
+//   link.href = tempCanvas.toDataURL('image/png');
   
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-});
+//   document.body.appendChild(link);
+//   link.click();
+//   document.body.removeChild(link);
+// });
 
 let mediaRecorder;
 let recordedChunks = [];
@@ -818,11 +875,16 @@ function startRecording() {
   let seconds = 0;
   const recordingTimer = setInterval(() => {
     seconds++;
-    recordButton.textContent = `Recording: ${seconds}s`;
+    //recordButton.textContent = `Recording: ${seconds}s`;
     
     if (seconds >= 60) {
       clearInterval(recordingTimer);
-      recordButton.click();
+      //recordButton.click();
+      mediaRecorder.stop();
+      isRecording = false;
+      menu.record_icon.image.src = "./assets/record-icon.png";
+      // recordButton.textContent = "Start Recording";
+      // recordButton.classList.remove("recording");
     }
   }, 1000);
   
@@ -854,19 +916,19 @@ function startRecording() {
   mediaRecorder.start(100);
 }
 
-recordButton.addEventListener("click", () => {
-  if (!isRecording) {
-    startRecording();
-    recordButton.textContent = "Stop Recording";
-    recordButton.classList.add("recording");
-    isRecording = true;
-  } else {
-    mediaRecorder.stop();
-    recordButton.textContent = "Start Recording";
-    recordButton.classList.remove("recording");
-    isRecording = false;
-  }
-});
+// recordButton.addEventListener("click", () => {
+//   if (!isRecording) {
+//     startRecording();
+//     recordButton.textContent = "Stop Recording";
+//     recordButton.classList.add("recording");
+//     isRecording = true;
+//   } else {
+//     mediaRecorder.stop();
+//     recordButton.textContent = "Start Recording";
+//     recordButton.classList.remove("recording");
+//     isRecording = false;
+//   }
+// });
 
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,uiCanvas.width, uiCanvas.height);
